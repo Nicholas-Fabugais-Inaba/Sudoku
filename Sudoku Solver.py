@@ -1,14 +1,36 @@
-grid = [
-       [0,0,0,3,0,0,0,0,0],
-       [0,0,0,1,4,6,7,5,0],
-       [0,6,0,0,2,0,0,9,8],
-       [1,0,2,4,0,0,0,8,6],
-       [0,0,4,0,5,2,3,0,0],
-       [7,0,0,0,0,0,0,0,0],
-       [3,0,0,0,8,0,0,7,1],
-       [2,9,0,0,0,0,0,0,0],
-       [0,0,6,7,0,5,4,0,0]
-]
+import random
+
+def reset_grid():
+    #resets grid to be completely empty
+    empty_grid = [
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0]
+    ]
+    return empty_grid
+
+
+def print_grid(grid):
+    #prints out grid in an organized format
+    for i in range(len(grid)):
+        if i % 3 == 0 and i != 0:
+            print("- - - - - - - - - - - -")
+
+        for j in range(len(grid[0])):
+            if j % 3 == 0 and j != 0:
+                print(" | ", end="")
+
+            if j == 8:
+                print(grid[i][j])
+            else:
+                print(str(grid[i][j]) + " ", end="")
+
 
 def find_empty(grid):
     
@@ -39,12 +61,13 @@ def valid_num(grid, num, position):   #num represents empty square input
                 return False
 
     return True
+    
 
 def solver(grid):
 
     empty = find_empty(grid)
     if not empty:
-        return True
+        return True     #base case
     else:
         row, column = empty
 
@@ -52,31 +75,93 @@ def solver(grid):
         if valid_num(grid, i, (row,column)):
             grid[row][column] = i
 
-            if solver(grid):
+            if solver(grid):        #if solution found solver finishes
                 return True
 
             grid[row][column] = 0
+            
+    return False
+    
 
+
+def start_grid():
+
+    #generates 3 valid and filled boxes diagonal to each other
+    grid = reset_grid()
+    num_list = list(range(1,10))
+    for row in range(3):
+        for column in range(3):
+            random_num = random.choice(num_list)
+            grid[row][column] = random_num
+            num_list.remove(random_num)
+
+    num_list = list(range(1,10))
+    for row in range(3, 6):
+        for column in range(3, 6):
+            random_num = random.choice(num_list)
+            grid[row][column] = random_num
+            num_list.remove(random_num)
+
+    num_list = list(range(1,10))
+    for row in range(6, 9):
+        for column in range(6, 9):
+            random_num = random.choice(num_list)
+            grid[row][column] = random_num
+            num_list.remove(random_num)
+    
+    return grid
+
+def finish_grid(grid):
+    #fills rest of the grid with valid boxes
+    for row in range(len(grid)):
+        for column in range(len(grid[row])):
+            if grid[row][column] == 0:
+                random_num = random.randint(1, 9)
+
+                if valid_num(grid, random_num, (row,column)):
+                    grid[row][column] = random_num
+
+                    if solver(grid):
+                        finish_grid(grid)
+                        return grid
+
+                    grid[row][column] = 0
+                    
     return False
 
-def print_grid(grid):
-    for i in range(len(grid)):
-        if i % 3 == 0 and i != 0:
-            print("- - - - - - - - - - - -")
+def check_repeat(row, column, position_list):
+    #checks for a repeat position
+    for i in range(len(position_list)):
+            if (row, column) == position_list[i]:
+                row = random.randint(0, 8)
+                column = random.randint(0, 8)
+                check_repeat(row, column, position_list)
+                return True
+                
+    return False
+                
 
-        for j in range(len(grid[0])):
-            if j % 3 == 0 and j != 0:
-                print(" | ", end="")
+def create_puzzle(grid):
+    #removes random positions of a solvable sudoku puzzle
+    position_list = []
+    
+    while len(position_list) < 40:
 
-            if j == 8:
-                print(grid[i][j])
-            else:
-                print(str(grid[i][j]) + " ", end="")
+        row = random.randint(0, 8)
+        column = random.randint(0, 8)
+        if not check_repeat(row, column, position_list):
+            position_list.append((row, column))
+            grid[row][column] = 0
 
-print_grid(grid)
-solver(grid)
-print_grid(grid)
+    return grid
 
-
-
+print_grid(start_grid())
+print("")
+print("- - - - - - - - - - - -")
+print("")
+print_grid(finish_grid(start_grid()))
+print("")
+print("- - - - - - - - - - - -")
+print("")
+print_grid(create_puzzle(finish_grid(start_grid())))
 
