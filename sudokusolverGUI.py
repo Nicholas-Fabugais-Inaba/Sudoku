@@ -20,6 +20,19 @@ class Grid:
         self.model = None
         self.selected = None
 
+    def new_board(self, window, board, button1, button2):
+        #generates a new board
+        self.board = generate_Board()
+        self.rows = board.rows
+        self.columns = board.columns
+        self.width = board.width
+        self.height = board.height
+        self.squares = [[Square(self.board[i][j], i, j, self.width, self.height) for j in range(self.columns)] for i in range(self.rows)]
+        self.model = None
+        self.selected = None
+        redraw_window(window, board, button1, button2)
+        pygame.display.update()
+
     def update_model(self):
         #updates the board model
         self.model = [[self.squares[i][j].num for j in range(self.columns)] for i in range(self.rows)]
@@ -62,12 +75,15 @@ class Grid:
     def select(self, row, column):
         #sets every square to be unselected 'False' and the actual row, column
         #of the selected square to be selected 'True'
-        for i in range(self.rows):
-            for j in range(self.columns):
-                self.squares[i][j].selected = False
+        try:
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    self.squares[i][j].selected = False
 
-        self.squares[row][column].selected = True
-        self.selected = (row, column)
+            self.squares[row][column].selected = True
+            self.selected = (row, column)
+        except IndexError:
+            self.selected = None
 
     def clear(self):
         #clears the selected square to become empty '0'
@@ -95,7 +111,12 @@ class Grid:
         return True
 
 
-    def solve_board(self):
+    def solve_board(self, window, board, button1, button2):
+
+        for event in pygame.event.get():
+            
+            if event.type == pygame.QUIT:
+                exit()
         
         empty = find_empty(self.board)
         if not empty:
@@ -105,18 +126,22 @@ class Grid:
 
         for num in range(1, 10):
             if valid_num(self.board, num, (row,column)):
+                self.select(row, column)
                 self.board[row][column] = num
                 self.squares[row][column].set(num)
                 pygame.time.delay(63)
-                self.update_model()
+                redraw_window(window, board, button1, button2)
+                pygame.display.update()
 
-                if self.solve_board():        #if solution found solver finishes
+                if self.solve_board(window, board, button1, button2):        #if solution found solver finishes
                     return True
 
+                self.select(row, column)
                 self.board[row][column] = 0
                 self.squares[row][column].set(0)
                 pygame.time.delay(63)
-                self.update_model()
+                redraw_window(window, board, button1, button2)
+                pygame.display.update()
                     
         return False
         
@@ -168,9 +193,9 @@ class Square:
 
 class Button:
 
-    def __init__(self, colour, x, y, width, height, text=''):
+    def __init__(self, color, x, y, width, height, text=''):
         #initialize values to button object properties
-        self.colour = colour
+        self.color = color
         self.x = x
         self.y = y
         self.width = width
@@ -181,6 +206,8 @@ class Button:
         #draw button outline and text
         if outline:
             pygame.draw.rect(window, outline, (self.x-2, self.y-2, self.width+4), 0)
+
+        pygame.draw.rect(window, self.color, (self.x, self.y, self.width, self.height), 0)
 
         if self.text != '':
             font = pygame.font.SysFont('comicsans', 40)
@@ -196,19 +223,23 @@ class Button:
         return False
 
 
-def redraw_window(window, board, button):
+def redraw_window(window, board, button1, button2):
     #draw background window white
     window.fill((255, 255, 255))
-
-    button.draw(window)
+    
+    button1.draw(window)
+    button2.draw(window)
     board.draw(window)
 
 def main():
     #initialize what will be displayed in the window
     window = pygame.display.set_mode((540, 600))
     pygame.display.set_caption("Sudoku")
-    solveButton = Button((255, 255, 255), 215, 545, 110, 50, 'SOLVE')
+    solveButton = Button((255, 255, 255), 195, 545, 150, 50, 'SOLVE')
+    new_gameButton = Button((255, 255, 255), 0, 545, 180, 50, 'NEW GAME')
     board = Grid(9, 9, 540, 540)
+    x_arrow_movement = 0
+    y_arrow_movement = 0
     key = None
     running = True
 
@@ -220,23 +251,75 @@ def main():
             position = pygame.mouse.get_pos()
             
             if event.type == pygame.QUIT:
+                #quits out of pygame window
                 running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+                #if solve button is pressed, visually solves the board using a recursive backtracking algorithm
                 if solveButton.hover(position):
-                    print("SOLVING...")
-                    board.solve_board()
-                    print("SOLVED!")
+                    if board.is_finished():
+                        print("GAME OVER!")
+                    else:
+                        print("SOLVING...")
+                        board.solve_board(window, board, solveButton, new_gameButton)
+                        print("SOLVED!")
+                #if new game button is pressed, creates a new board
+                if new_gameButton.hover(position):
+                    board.new_board(window, board, solveButton, new_gameButton)
+                    print("NEW GAME!")
+
+                x_arrow_movement = 0
+                y_arrow_movement = 0
 
 
             if event.type == pygame.MOUSEMOTION:
+                #buttons change color when mouse is hovering over their position
                 if solveButton.hover(position):
-                    solveButton.colour = (180, 180, 180)
+                    solveButton.color = (180, 180, 180)
                 else:
-                    solveButton.colour = (255, 255, 255)
+                    solveButton.color = (255, 255, 255)
+                    
+                if new_gameButton.hover(position):
+                    new_gameButton.color = (180, 180, 180)
+                else:
+                    new_gameButton.color = (255, 255, 255)
             
             if event.type == pygame.KEYDOWN:
-
+                #number keys pressed set key to number, arrow keys pressed move in arrow key direction
+                #backspace clears number from board, if sketched
+                #return key enters in sketched number
+                if event.key == pygame.K_UP:
+                    y_arrow_movement-=1
+                    try:
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    except (UnboundLocalError, TypeError):
+                        clicked = (5, 4)
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    key = None
+                if event.key == pygame.K_DOWN:
+                    y_arrow_movement+=1
+                    try:
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    except (UnboundLocalError, TypeError):
+                        clicked = (3, 4)
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    key = None
+                if event.key == pygame.K_LEFT:
+                    x_arrow_movement-=1
+                    try:
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    except (UnboundLocalError, TypeError):
+                        clicked = (4, 5)
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    key = None
+                if event.key == pygame.K_RIGHT:
+                    x_arrow_movement+=1
+                    try:
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    except (UnboundLocalError, TypeError):
+                        clicked = (4, 3)
+                        board.select(clicked[0]+y_arrow_movement, clicked[1]+x_arrow_movement)
+                    key = None
                 if event.key == pygame.K_1:
                     key = 1
                 if event.key == pygame.K_2:
@@ -269,18 +352,19 @@ def main():
 
                         if board.is_finished():
                             print("GAME OVER!")
-            
+
+            #selects square clicked on by mouse
             if event.type == pygame.MOUSEBUTTONDOWN:
                 clicked = board.click(position)
                 if clicked:
                     board.select(clicked[0], clicked[1])
                     key = None
                     
-        
+        #key sketched into square
         if board.selected and key != None:
             board.sketch(key)
 
-        redraw_window(window, board, solveButton)
+        redraw_window(window, board, solveButton, new_gameButton)
         pygame.display.update()
 
 
